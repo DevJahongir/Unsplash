@@ -1,121 +1,101 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:unsplash/pages/details_page.dart';
+import 'package:unsplash/services/http_service.dart';
+import 'package:unsplash/services/log_service.dart';
 
-class SearchPage extends StatelessWidget {
-  final List<String> images = [
-    'https://plus.unsplash.com/premium_photo-1698406096055-91a364147db5?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    'https://plus.unsplash.com/premium_photo-1698405316329-fd9c43d7e11c?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    'https://images.unsplash.com/photo-1721332154191-ba5f1534266e?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDF8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    'https://images.unsplash.com/photo-1726148153379-c1a513d6dc4e?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    'https://images.unsplash.com/photo-1724805053205-d429850a5ed5?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    'https://images.unsplash.com/photo-1726053468122-6416a30793dd?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    'https://images.unsplash.com/photo-1726164959171-291645df9ed9?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    'https://images.unsplash.com/photo-1720048171527-208cb3e93192?q=80&w=1374&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDF8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-  ];
+import '../model/photo_model.dart';
 
-  final List<String> names = [
-    'wu yi',
-    'Adam Bignell',
-    'Annie Spratt',
-    'Building',
-    'Sweeet ews',
-    'Nuture',
-    'Sport fuge',
-    'Memory card'
-  ];
+class SearchPage extends StatefulWidget {
+  static const String id = "search_page";
 
-  SearchPage({super.key});
+  const SearchPage({super.key});
+
+  @override
+  State<SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends State<SearchPage> {
+  bool isLoading = false;
+  List<Photo> items = [];
+  int currentPage = 1;
+  ScrollController scrollController = ScrollController();
+
+  _callDetailsPage(Photo photo) {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (BuildContext context) {
+      return DetailsPage(
+        photo: photo,
+      );
+    }));
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    scrollController.addListener(() {
+      if (scrollController.position.maxScrollExtent <=
+          scrollController.offset) {
+        currentPage++;
+        LogService.i(currentPage.toString());
+        _apiSearchPhotos();
+      }
+    });
+    _apiSearchPhotos();
+  }
+
+  _apiSearchPhotos() async {
+    setState(() {
+      isLoading = true;
+    });
+    var response = await Network.GET(Network.API_SEARCH_PHOTOS,
+        Network.paramsSearchPhotos("office", currentPage));
+    var result = Network.parseSearchPhotos(response!);
+    LogService.i(response!);
+
+    setState(() {
+      items.addAll(result.results);
+      isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black45,
-      body: Column(
-        children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              onChanged: (value) {
-                // Implement your search functionality here
-              },
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.grey[200],
-                hintText: 'Search photos, collections, users',
-                prefixIcon: const Icon(Icons.search, size: 25), // Adjust icon size here
-                contentPadding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            )
-
-          ),
-          // Grid of images
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 4.0,
-                crossAxisSpacing: 4.0,
-                childAspectRatio: 1.0,
-              ),
-              itemCount: images.length,
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            MasonryGridView.builder(
+              controller: scrollController,
+              gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2),
+              itemCount: items.length,
+              mainAxisSpacing: 2,
+              crossAxisSpacing: 2,
               itemBuilder: (context, index) {
-                return ImageGridItem(
-                  imageUrl: images[index],
-                  name: names[index],
-                );
+                return _itemOfPhoto(items[index], index);
               },
             ),
-          ),
-        ],
-      ),
-    );
+            isLoading
+                ? Center(
+                    child: CircularProgressIndicator(),
+                  )
+                : SizedBox.shrink(),
+          ],
+        ));
   }
-}
 
-class ImageGridItem extends StatelessWidget {
-  final String imageUrl;
-  final String name;
-
-  const ImageGridItem({super.key, required this.imageUrl, required this.name});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _itemOfPhoto(Photo photo, int index) {
     return GestureDetector(
       onTap: () {
-        // Details Page
-        Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => DetailsPage(imageUrl: imageUrl)));
+        _callDetailsPage(photo);
       },
-      child: Stack(
-        alignment: Alignment.bottomLeft,
-        children: [
-         Hero(
-           tag: imageUrl,
-           child: Container(
-             decoration: BoxDecoration(
-               image: DecorationImage(
-                 image: NetworkImage(imageUrl),
-                 fit: BoxFit.cover,
-               )
-             ),
-           ),
-         ),
-          Container(
-            padding: const EdgeInsets.all(8),
-            color: Colors.black.withOpacity(0.5),
-            child: Text(
-              name,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-            ),
-          ),
-        ],
+      child: Container(
+        height: (index % 5 + 5) * 50.0,
+        child: Image.network(
+          photo.urls.small!,
+          fit: BoxFit.cover,
+        ),
       ),
     );
   }
